@@ -9,17 +9,19 @@ local radians = {math.rad(90),math.rad(-90)}
 
 local ForkPropertyBuilder = {}
 ForkPropertyBuilder.__index = ForkPropertyBuilder
---Creates a new ForkProperty (this one is too big so I seperated it). This helps creating multiple 'forks' or branches like in real bolts
+-- This helps creating multiple 'forks' or branches like in real bolts. The Reason I seperated for a whole Property metaclass, is for easier management.
 function ForkPropertyBuilder.createBranch(where : CFrame,parent : Instance,chance : number,isFirstBranch : boolean,forkProperty, lightning)
-	---handles the branch maker because this is recursive
+	---Repetitively makes multi branches through the recursive call method.
+	---The Recursive Call Method ensures : Weaker bolts as more branches and bolts are made, NEVER infinite growth of the strike, while keeping the visuals still consistently chaotic
+	
 	--first let's check if the randomness is enough
 	local rng = Random.new()
-	if rng:NextNumber(0,1) > chance then
+	if rng:NextNumber(0,1) > chance then --This is very important, as without it, every lightning bolt would look too repetitive, which is very unnatural.
 		return
 	end
 	
 	local branch = Instance.new("Part")
-	--creating the part
+	
 	branch.Size = forkProperty.Size
 	branch.CFrame = where
 	branch.BrickColor = BrickColor.new("New Yeller")
@@ -29,7 +31,6 @@ function ForkPropertyBuilder.createBranch(where : CFrame,parent : Instance,chanc
 	branch.Parent = parent
 	Debris:AddItem(branch,lightning.DisappearTime)
 	
-	--rotates the branch
 	local rotation : number = forkProperty.Rotation
 	local x = rng:NextNumber(-rotation,rotation)
 	local y = rng:NextNumber(-rotation,rotation)
@@ -39,7 +40,7 @@ function ForkPropertyBuilder.createBranch(where : CFrame,parent : Instance,chanc
 	if isFirstBranch then
 		local x = radians[rng:NextInteger(1,2)]
 		local z = radians[rng:NextInteger(1,2)]
-		--the first branch's rotation is always large naturally, so that's why add 90 or -90 degrees
+		--The first, the core branch always has a wilder rotation, so that's why
 		branch.CFrame *= CFrame.Angles(x,0,z)
 		
 		--so the branch is not stuck in the middle point
@@ -64,12 +65,12 @@ function ForkPropertyBuilder.new()
 	ForkProperty.ChanceOfBranch = 0.3
 	ForkProperty.Size = Vector3.new(0.7,2.3,0.7)
 	ForkProperty.Rotation = 30
-	ForkProperty.Always2Branches = true --appears 2 branches from the first branch, always
+	ForkProperty.Always2Branches = true --Always Appears 2 branches from the first bolt. This ensures every lightning bolt must have at least branches 
 	
 	return ForkProperty
 end
 
----Creates a thunderstorm, an region that strikes lightning bolts
+---THUNDERSTORM : A instance specifically holding the settings of range, frequency, position and more of the Lightning Strike. 
 local Thunderstorm = {}
 Thunderstorm.__index = Thunderstorm
 
@@ -82,13 +83,15 @@ function Thunderstorm.create(lightning : {},strikeCooldown : number,chanceOfChar
 	thunderstorm.Lightning = lightning
 	thunderstorm.CharacterHitChance = chanceOfCharHit
 	thunderstorm.StrikeCooldown = strikeCooldown
-	thunderstorm.Task = nil --the coroutine that handles the lightning storm
+	thunderstorm.Task = nil --CLARITY : The so-called 'Task' is actually a coroutine that handles the lightning storm
+	--I called that a Task, because it is much more obvious than 'Thread'
 	
 	return thunderstorm
 end
---Starts the thunderstorm.
+
 function Thunderstorm:start()
-	self:stop() --Stops the previous thunderstorm if there is any
+	self:stop() --Stops the previous thunderstorm if there is any. If you want a new bolt spawner, you can just create a new Thunderstorm instance.
+	--Limited to one task per Thunderstorm only, for performance and easier management of usage.
 	
 	local da_task = task.spawn(function()
 		while true do
@@ -100,7 +103,7 @@ function Thunderstorm:start()
 			
 			local rng = Random.new()
 			local chance = rng:NextNumber(0,1)
-			if chance <= charHitChance then --checks if it is random enough to strike a character down
+			if chance <= charHitChance then --In Real Life, lightning strikes don't always instantly hit people. 
 				local chars = {}
 				for _,part in pairs(workspace:GetPartBoundsInBox(cframe,size)) do
 					if part and part.Parent and part.Parent:FindFirstChild("Humanoid") then 
@@ -108,7 +111,6 @@ function Thunderstorm:start()
 						local humanoid : Humanoid = char.Humanoid
 						local primaryPart : BasePart = char.PrimaryPart
 						if primaryPart and not chars[primaryPart] then
-							--specifically primary part for easier access later on
 							table.insert(chars,primaryPart)
 						end
 					end
@@ -149,7 +151,6 @@ end
 local Lightning = {}
 Lightning.__index = Lightning
 
---Creates a new lightning
 function Lightning.new(parent : Instance,forkProperty)
 	local lightning = setmetatable({},Lightning)
 	--The position and rotation of the destinated struck lightning
@@ -176,13 +177,13 @@ function Lightning.new(parent : Instance,forkProperty)
 	return lightning
 end
 
---Deals splash damage and create struck ball visuals. 
+--Creates struck ball visuals, and also DEAL damage. 
 function Lightning:createElectricalBall(whereToStrike : CFrame) 
 	local radius : number = self.Radius
 	local disappearTime : number = self.DisappearTime
 	local parent : Instance = self.Parent
 	local dmg : number = self.Damage
-	--we create a part instead of a direct explosion for deeper customization
+	--we create a part instead of a direct Explosion Instance. for deeper customization
 	local explosion = Instance.new("Part")
 	explosion.Name = "Bolt Explosion"
 	explosion.Shape = Enum.PartType.Ball
@@ -195,7 +196,8 @@ function Lightning:createElectricalBall(whereToStrike : CFrame)
 	explosion.Parent = parent
 	Debris:AddItem(explosion,disappearTime)
 
-	--creating an attachment for thunder roaring
+	--Creating an attachment for thunder roaring
+	--Sound is seperated from the visual Part for 2 main reasons : The roaring Sound most of the time lasts longer than the visuals' life time ; I want to also ensure the case of it not being fully loaded yet.
 	local att = thunder:Clone()
 	att.Parent = parent
 	local sound = att.Thunder
@@ -204,7 +206,6 @@ function Lightning:createElectricalBall(whereToStrike : CFrame)
 		att:Destroy()
 	end)
 
-	--now we deal damage
 	local hitCharacters = {} --For preventing the same char multiple times cuz they have more than one part
 	for _,part in pairs(workspace:GetPartsInPart(explosion)) do
 		if part and part.Parent and part.Parent:FindFirstChildWhichIsA("Humanoid") then
@@ -218,7 +219,6 @@ function Lightning:createElectricalBall(whereToStrike : CFrame)
 	end
 end
 
---Make the lightning strike.
 function Lightning:strike(specificLocation : CFrame)
 	local size : Vector3 = self.BoltSize
 	
@@ -237,7 +237,7 @@ function Lightning:strike(specificLocation : CFrame)
 	local allowsForks : boolean = self.AllowsForks
 	local forkProperty = self.ForkProperty
 	
-	--we need to get the raycasted position, lightnings don't go through things
+	--While this might seem not necessary, but this actually helps more in most cases. 
 	local skyCFrame = originalCFrame*CFrame.new(0,500,0)
 	local result = workspace:Raycast(skyCFrame.Position,skyCFrame.UpVector* -1 * 500)
 	if result then
@@ -265,15 +265,14 @@ function Lightning:strike(specificLocation : CFrame)
 		local x = math.rad(rng:NextNumber(-rotation,rotation)) --generating random intergers
 		local y = math.rad(rng:NextNumber(-rotation,rotation))
 		local z = math.rad(rng:NextNumber(-rotation,rotation))
-		bolt.CFrame = bolt.CFrame * CFrame.Angles(x,y,z) * CFrame.new(0,size.Y/2,0) --set the bolt to its true position
-		local tip = (bolt.CFrame * CFrame.new(0,size.Y/2,0)) --getting the top tip cframe of this bolt
+		bolt.CFrame = bolt.CFrame * CFrame.Angles(x,y,z) * CFrame.new(0,size.Y/2,0) --set the bolt to its absolutely true position
+		local tip = (bolt.CFrame * CFrame.new(0,size.Y/2,0)) --getting the top tip cframe of this bolt, in order to STACK the remaining top bolts.
 		currentCFrame = CFrame.new(tip.Position) * originalCFrame.Rotation
 		
-		--slowly makes it disappear
 		Debris:AddItem(bolt,disappearTime)
 		
 		--Now we create branches
-		if allowsForks then --checks if the lightning allows forks
+		if allowsForks then --checks if the lightning allows forks. This is a one of the key checks, as certain bolts don't need to have branches, to make the lightning bolt appear less 'hairy'
 			ForkPropertyBuilder.createBranch(
 				tip,parent,forkProperty.ChanceOfBranch,true,forkProperty,self
 			)
@@ -294,17 +293,15 @@ end
 
 ---------------------- LET'S SHOWCASE THIS ---------------------
 game.Players.PlayerAdded:Connect(function(plr)  --catches a joining player for their character
-	plr.CharacterAdded:Connect(function(char) --gets their character
+	plr.CharacterAdded:Connect(function(char) 
 		local humanoid = char:FindFirstChildWhichIsA("Humanoid")
-		--we do not have to check whether it is nil or not, humanoid always load in CharacterAdded
+		--CLARITY : we do not have to check whether it is nil or not, humanoid always loads in CharacterAdded
 		humanoid.StateChanged:Connect(function(old, new)
 			if new == Enum.HumanoidStateType.Jumping then
-				--signals the jumping event
-				--creates a new fork property
 				local forkProperty = ForkPropertyBuilder.new()
 				forkProperty.Size = Vector3.new(0.7,5,0.7)
 				
-				local light = Lightning.new(workspace,forkProperty) --creating a new lightning
+				local light = Lightning.new(workspace,forkProperty) 
 				light.Bolts = 18
 				light.BoltSize = Vector3.new(1,8,1)
 				light.CFrame = CFrame.new(char.PrimaryPart.Position)
