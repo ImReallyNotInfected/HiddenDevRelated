@@ -147,7 +147,7 @@ function Thunderstorm:stop()
 	end
 end
 
----Time for the Actual Lightning Bolt
+---CLARITY : LIGHTNING CLASS is the true, final 'Lightning' instance of this whole Module, connecting ForkProperty and Thunderstorm instances together. 
 local Lightning = {}
 Lightning.__index = Lightning
 
