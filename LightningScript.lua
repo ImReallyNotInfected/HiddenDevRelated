@@ -1,4 +1,7 @@
 ---!strict
+
+----REWRITTEN COMMENTS FOR MORE CLARITY
+
 ---------------------- REFERENCES -----------------------
 local TW = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
